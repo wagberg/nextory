@@ -39,7 +39,7 @@ class InvalidAuthTokenError(NextoryApiError): # 1001
     pass
 
 class MissingHeaderError(NextoryApiError): # 1005
-    def __init__(self, code: int, key: str, message: str, description: str, header: str):
+    def __init__(self, code: int, key: str, message: str, description: str):
         super().__init__(code, key, message, description)
         import re
         match = re.search(r'\[(.*?)\]|missing\s+(X-[\w-]+)', description)
@@ -72,4 +72,17 @@ class UnauthorizedError(NextoryApiError): # 1001
 
 class UserNotAuthenticatedError(NextoryApiError): # 1002
     pass
+
+
+ERROR_CODE_MAP: dict[int, type[NextoryApiError]] = {
+    1001: InvalidAuthTokenError,
+    1002: UserNotAuthenticatedError,
+    1005: MissingHeaderError,
+    1006: MissingParameterError,
+    1007: InvalidDataError,
+    2001: ExpiredLoginTokenError,
+    2002: ExpiredProfileTokenError,
+    3010: ProfileNotFoundError,
+    7111: UnauthorizedError,
+}
 

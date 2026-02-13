@@ -184,7 +184,7 @@ class LibraryLists(DataClassJSONMixin):
     """User library lists."""
 
     product_lists: list[LibraryList] = field(default_factory=list[LibraryList])
-    lists: list[LibraryList] = field(default_factory=list[LibraryList])
+    lists: Optional[list[LibraryList]] = field(default=None)
 
 
 @dataclass
