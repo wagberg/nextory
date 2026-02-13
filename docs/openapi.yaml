@@ -1,0 +1,6273 @@
+openapi: 3.0.3
+info:
+  title: Nextory API
+  description: |
+    Nextory Android app API for audiobooks and ebooks.
+    All information derived from decompiled Android app code.
+  version: 2026.01.3
+  contact:
+    name: Nextory
+    url: https://www.nextory.com
+
+servers:
+  - url: https://api.nextory.com
+    description: Production server
+
+security:
+  - DeviceAuth: []
+  - ProfileAuth: []
+
+components:
+  securitySchemes:
+    DeviceAuth:
+      type: apiKey
+      in: header
+      name: X-Login-Token
+      description: User authentication token (required when authenticated)
+    
+    ProfileAuth:
+      type: apiKey
+      in: header
+      name: X-Profile-Token
+      description: Active profile token (required for most endpoints except @c5f marked)
+
+  parameters:
+    X-Application-Id:
+      name: X-Application-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        enum: ["200", "201", "202", "204", "205"]
+      description: Device type (200=Android, 201=iOS, 202=Huawei, 204=Automotive, 205=Wear)
+    
+    X-Device-Id:
+      name: X-Device-id
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-3[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      example: "550e8400-e29b-31d4-a716-446655440000"
+      description: |
+        Device identifier as UUID v3 (namespace-based UUID).
+        Generated using uuid3(NAMESPACE_DNS, "python-nextory").
+        Must be a valid UUID v3 format (version field = 3).
+    
+    X-Locale:
+      name: X-Locale
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z]{2}_[A-Z]{2}$'
+      example: en_US
+      description: Device locale (language_country)
+    
+    X-Model:
+      name: X-Model
+      in: header
+      required: true
+      schema:
+        type: string
+      example: Samsung%20SM-G991B
+      description: URL-encoded device model
+    
+    X-App-Version:
+      name: X-App-Version
+      in: header
+      required: true
+      schema:
+        type: string
+        default: "2026.01.3"
+      description: App version
+    
+    X-Os-Info:
+      name: X-Os-Info
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^Android \d+$'
+      example: Android 13
+      description: Android OS version
+    
+    X-Country-Code:
+      name: X-Country-Code
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^[A-Z]{2}$'
+      example: US
+      description: ISO 3166-1 alpha-2 country code
+
+  responses:
+    Unauthorized:
+      description: Not authorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NetworkErrorResponse'
+          example:
+            error:
+              code: 7111
+              key: Unauthorized
+              message: Not Authorized
+              description: Not Authorized
+
+  schemas:
+    ProductType:
+      type: string
+      enum:
+        - book
+        - magazine
+      description: Type of product content
+
+    FormatType:
+      type: string
+      enum:
+        - epub
+        - hls
+        - pdf
+      description: Format type for books (EPUB for ebooks, HLS for audiobooks, PDF for PDFs)
+
+    NetworkErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+          properties:
+            code:
+              type: integer
+              description: |
+                Numeric error code. Known codes:
+                - 7100: BookNotFound - Book/resource not found
+                - 7111: Unauthorized - Not authorized to access resource
+              example: 7111
+            key:
+              type: string
+              nullable: true
+              description: Error identifier key
+              example: Unauthorized
+            message:
+              type: string
+              nullable: true
+              description: Human-readable error message
+              example: Not Authorized
+            description:
+              type: string
+              nullable: true
+              description: Detailed error description
+              example: Not Authorized
+      example:
+        error:
+          code: 7100
+          key: BookNotFound
+          message: "Couldn't find Book with 'id'=9789129692389"
+          description: "Couldn't find Book with 'id'=9789129692389"
+
+    ProfileResponse:
+      type: object
+      required:
+        - id
+        - name
+        - login_key
+        - customer_id
+        - is_main
+        - filter
+        - color_index
+        - settings
+        - is_magazine_enabled
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        surname:
+          type: string
+          nullable: true
+        login_key:
+          type: string
+        customer_id:
+          type: integer
+          format: int64
+        is_main:
+          type: boolean
+        filter:
+          type: string
+        category:
+          type: string
+          nullable: true
+        img_status:
+          type: string
+          nullable: true
+        pic_url:
+          type: string
+          nullable: true
+        bio:
+          type: string
+          nullable: true
+        color_index:
+          type: integer
+        settings:
+          $ref: '#/components/schemas/ProfileSettings'
+        is_magazine_enabled:
+          type: boolean
+        birth_year:
+          type: integer
+          nullable: true
+        avatar:
+          allOf:
+            - $ref: '#/components/schemas/AvatarResponse'
+          nullable: true
+
+    CreateProfileBody:
+      type: object
+      required:
+        - name
+        - color_index
+        - filter
+      properties:
+        name:
+          type: string
+        color_index:
+          type: integer
+        filter:
+          type: string
+        surname:
+          type: string
+        bio:
+          type: string
+
+    UpdateProfileBody:
+      type: object
+      required:
+        - login_key
+      properties:
+        login_key:
+          type: string
+        name:
+          type: string
+        color_index:
+          type: integer
+        filter:
+          type: string
+        surname:
+          type: string
+        bio:
+          type: string
+        settings:
+          $ref: '#/components/schemas/ProfileSettings'
+        birth_year:
+          type: integer
+        avatar_id:
+          type: integer
+
+    LoginKeyBody:
+      type: object
+      required:
+        - login_key
+      properties:
+        login_key:
+          type: string
+
+    ProfileTokenResponse:
+      type: object
+      required:
+        - profile_token
+      properties:
+        profile_token:
+          type: string
+
+    ProfilesResponse:
+      type: object
+      required:
+        - profiles
+        - max_profiles
+        - max_login_count
+        - colors
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileResponse'
+        max_profiles:
+          type: integer
+        max_login_count:
+          type: integer
+        colors:
+          type: array
+          items:
+            type: string
+
+    AutoLoginLinkResponse:
+      type: object
+      required:
+        - auto_login_link
+        - auto_login_token
+      properties:
+        auto_login_link:
+          type: string
+        auto_login_token:
+          type: string
+
+    AvatarResponse:
+      type: object
+      required:
+        - id
+        - avatar
+        - avatar_thumbnail
+      properties:
+        id:
+          type: integer
+        avatar:
+          type: string
+          description: Avatar image URL
+        avatar_thumbnail:
+          type: string
+          description: Avatar thumbnail URL
+
+    AvatarsResponse:
+      type: object
+      required:
+        - avatars
+      properties:
+        avatars:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvatarResponse'
+
+    ProductResponse:
+      type: object
+      required:
+        - id
+        - title
+        - media_type
+        - is_adult_book
+        - average_rating
+        - number_of_rates
+        - language
+        - authors
+        - narrators
+        - formats
+        - profile_product
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        media_type:
+          type: string
+          description: Type of media (book, audiobook, etc.)
+        is_adult_book:
+          type: boolean
+        average_rating:
+          type: number
+          format: float
+        number_of_rates:
+          type: integer
+        blurb:
+          type: string
+          nullable: true
+          description: Short description
+        description_full:
+          type: string
+          nullable: true
+          description: Full description
+        language:
+          type: string
+        esales_ticket:
+          type: string
+          nullable: true
+        share_url:
+          type: string
+          nullable: true
+        volume:
+          type: integer
+          nullable: true
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShortAuthorResponse'
+        narrators:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShortNarratorResponse'
+        series:
+          allOf:
+            - $ref: '#/components/schemas/ShortenSeriesResponse'
+          nullable: true
+        formats:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormatResponse'
+        profile_product:
+          $ref: '#/components/schemas/ProfileProductResponse'
+        product_badges:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ProductBadgeResponse'
+        is_format_synced:
+          type: boolean
+          nullable: true
+
+    LibraryListResponse:
+      type: object
+      required:
+        - id
+        - offline_available
+        - editable
+        - deletable
+        - is_content_frozen
+        - type
+        - created_date
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          nullable: true
+        offline_available:
+          type: boolean
+        editable:
+          type: boolean
+        deletable:
+          type: boolean
+        is_content_frozen:
+          type: boolean
+        type:
+          type: string
+        item_count:
+          type: integer
+          nullable: true
+        book_count:
+          type: integer
+          nullable: true
+        created_date:
+          type: string
+          format: date-time
+        cover_images:
+          type: array
+          items:
+            type: string
+        content_type:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductType'
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryFilterResponse'
+        latest_edition_date:
+          type: string
+          format: date-time
+          nullable: true
+        series_entry:
+          allOf:
+            - $ref: '#/components/schemas/SeriesEntryResponse'
+          nullable: true
+        authors_entry:
+          allOf:
+            - $ref: '#/components/schemas/AuthorsEntryResponse'
+          nullable: true
+
+    HomeEntriesResponse:
+      type: object
+      required:
+        - entries
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/BaseHomeEntryResponse'
+
+    EpubPackageResponse:
+      type: object
+      required:
+        - crypt_key
+        - crypt_iv
+        - spines
+      properties:
+        crypt_key:
+          type: string
+          description: Base64 encoded AES encryption key
+        crypt_iv:
+          type: string
+          description: Base64 encoded AES initialization vector
+        spines:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpineResponse'
+        toc:
+          allOf:
+            - $ref: '#/components/schemas/TocElementResponse'
+          nullable: true
+        sliced_at:
+          type: string
+          format: date-time
+          nullable: true
+        total_pages:
+          type: integer
+          nullable: true
+
+    LibraryListsResponse:
+      type: object
+      properties:
+        product_lists:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LibraryListResponse'
+        lists:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LibraryListResponse'
+
+    BookmarkResponse:
+      type: object
+      required:
+        - id
+        - spine_id
+        - bookmarked_at
+      properties:
+        id:
+          type: integer
+          format: int64
+        spine_id:
+          type: string
+        path:
+          type: string
+          nullable: true
+        position:
+          type: number
+          format: double
+          nullable: true
+        blurb:
+          type: string
+          nullable: true
+        elapsed_time_in_spine:
+          type: integer
+          format: int64
+          nullable: true
+        bookmarked_at:
+          type: string
+        note:
+          type: string
+          nullable: true
+
+    ResponseBookmarks:
+      type: object
+      required:
+        - bookmarks
+      properties:
+        bookmarks:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookmarkResponse'
+
+    AiLibrarianSessionResponse:
+      type: object
+      required:
+        - id
+        - profile_id
+        - agent_engine_id
+      properties:
+        id:
+          type: string
+          description: Session ID
+        profile_id:
+          type: integer
+          format: int64
+          description: Profile ID
+        agent_engine_id:
+          type: string
+          description: Agent engine identifier
+
+    AiLibrarianSessionBody:
+      type: object
+      required:
+        - profile_id
+      properties:
+        profile_id:
+          type: integer
+          format: int64
+          description: Profile ID
+
+    AiLibrarianResponse:
+      type: object
+      required:
+        - response
+        - recommendations
+        - follow_up_question
+        - user_help
+      properties:
+        response:
+          type: string
+          description: AI response text
+        recommendations:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - motivation
+              - goodness_of_fit
+            properties:
+              id:
+                type: integer
+                description: Product ID
+              motivation:
+                type: string
+                description: Recommendation motivation
+              goodness_of_fit:
+                type: number
+                format: double
+                description: Fit score
+        follow_up_question:
+          type: string
+          description: Follow-up question
+        user_help:
+          type: array
+          items:
+            type: string
+          description: User help messages
+
+    ConversationStartersResponse:
+      type: object
+      required:
+        - teaser_prompts
+        - suggested_prompts
+      properties:
+        teaser_prompts:
+          type: array
+          items:
+            type: string
+          description: Teaser prompts
+        suggested_prompts:
+          type: array
+          items:
+            type: object
+            required:
+              - prompt_headline
+              - prompts
+            properties:
+              prompt_headline:
+                type: string
+                description: Prompt headline
+              prompts:
+                type: array
+                items:
+                  type: string
+                description: Prompt texts
+
+    SeriesProductsResponse:
+      type: object
+      required:
+        - products
+      properties:
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductResponse'
+
+    SeriesPageResponse:
+      type: object
+      required:
+        - series
+      properties:
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeriesResponse'
+
+    ProductsPageResponse:
+      type: object
+      required:
+        - products
+      properties:
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductResponse'
+        results_count:
+          type: integer
+          nullable: true
+          description: Total results count
+
+    SignInBody:
+      type: object
+      properties:
+        access_token:
+          type: string
+          nullable: true
+          description: OAuth access token for Apple and Facebook
+        id_token:
+          type: string
+          nullable: true
+          description: OAuth ID token for Google
+        provider:
+          type: string
+          nullable: true
+          description: OAuth provider
+          enum: [facebook, apple, google, nextory]
+        identifier:
+          type: string
+          nullable: true
+          description: Email or username
+        password:
+          type: string
+          nullable: true
+          description: Password
+
+    UpdateBookReadingBodyRequest:
+      type: object
+      required:
+        - position
+      properties:
+        position:
+          type: object
+          required:
+            - percentage
+            - reached_at
+          properties:
+            elapsed_time:
+              type: integer
+              nullable: true
+            page_number:
+              type: integer
+              nullable: true
+            path:
+              type: string
+              nullable: true
+            idref:
+              type: string
+              nullable: true
+            percentage:
+              type: number
+              format: float
+            reached_at:
+              type: string
+
+    UpdateBookmarkBody:
+      type: object
+      required:
+        - bookmark
+      properties:
+        bookmark:
+          type: object
+          required:
+            - spine_id
+            - bookmarked_at
+          properties:
+            spine_id:
+              type: string
+            path:
+              type: string
+              nullable: true
+            position:
+              type: number
+              format: double
+              nullable: true
+            blurb:
+              type: string
+              nullable: true
+            elapsed_time_in_spine:
+              type: integer
+              format: int64
+              nullable: true
+            bookmarked_at:
+              type: string
+            note:
+              type: string
+              nullable: true
+
+    BookReadingResponse:
+      type: object
+      required:
+        - percentage
+        - reached_at
+      properties:
+        elapsed_time:
+          type: integer
+          nullable: true
+        page_number:
+          type: integer
+          nullable: true
+        path:
+          type: string
+          nullable: true
+        idref:
+          type: string
+          nullable: true
+        percentage:
+          type: number
+          format: float
+        reached_at:
+          type: string
+
+    UserStreakGoalResponse:
+      type: object
+      required:
+        - minutes_per_day
+        - streak
+        - situations
+        - reading_habit_campaign_opt_in
+      properties:
+        minutes_per_day:
+          type: integer
+        streak:
+          type: object
+          required:
+            - streak_history
+            - days_count
+            - reparable_days_left
+            - level
+            - message
+            - time
+          properties:
+            streak_history:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserStreakStateByDayResponse'
+            days_count:
+              type: integer
+            reparable_days_left:
+              type: integer
+            level:
+              type: integer
+            message:
+              type: string
+            time:
+              type: integer
+              format: int64
+        situations:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+          nullable: true
+        reading_habit_campaign_opt_in:
+          type: boolean
+
+    OnboardingSubCategoryResponse:
+      type: object
+      required:
+        - sub_categories
+      properties:
+        sub_categories:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - title
+            properties:
+              id:
+                type: integer
+              title:
+                type: string
+
+    OnboardingCategoryResponse:
+      type: object
+      required:
+        - categories
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/OnboardingCategory'
+
+    OnboardingCategory:
+      type: object
+      required:
+        - categoryId
+        - displayName
+        - selected
+        - smallImageUrl
+        - largeImageUrl
+      properties:
+        categoryId:
+          type: integer
+        displayName:
+          type: string
+        selected:
+          type: boolean
+        smallImageUrl:
+          type: string
+        largeImageUrl:
+          type: string
+        subType:
+          type: integer
+          nullable: true
+
+    BrandsResponse:
+      type: object
+      required:
+        - brands
+      properties:
+        brands:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrandResponse'
+
+    BrandResponse:
+      type: object
+      required:
+        - id
+        - title
+        - images
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+          description: Brand image URLs
+
+    SelectionListResponse:
+      type: object
+      required:
+        - selections
+      properties:
+        selections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SelectionResponse'
+
+    SelectionResponse:
+      type: object
+      required:
+        - id
+        - title
+        - show_filter
+        - sort_fields
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          nullable: true
+        title:
+          type: string
+        detail:
+          type: string
+          nullable: true
+        show_filter:
+          type: boolean
+        sort_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SortFieldResponse'
+        social_meta_info:
+          allOf:
+            - $ref: '#/components/schemas/SocialMetaInfoResponse'
+          nullable: true
+        additional_attributes:
+          allOf:
+            - $ref: '#/components/schemas/AdditionalAttributesResponse'
+          nullable: true
+        small_image:
+          type: string
+          nullable: true
+
+    CoverImageResponse:
+      type: object
+      required:
+        - cover_image
+        - cover_ratio
+      properties:
+        cover_image:
+          type: string
+        cover_ratio:
+          type: number
+          format: float
+        cover_color:
+          type: string
+          nullable: true
+
+    AccessibilityFeatureResponse:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+        details:
+          type: array
+          nullable: true
+          items:
+            type: string
+
+    ShortTranslatorResponse:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    SubCategoryResponse:
+      type: object
+      required:
+        - id
+        - large_image
+        - products_count
+        - small_image
+        - sub_categories
+        - title
+      properties:
+        bgc:
+          type: string
+          nullable: true
+        id:
+          type: integer
+        large_image:
+          type: string
+        products_count:
+          type: integer
+        small_image:
+          type: string
+        sub_categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubCategoryResponse'
+        title:
+          type: string
+
+    LibraryFilterOptionResponse:
+      type: object
+      required:
+        - name
+        - display_name
+      properties:
+        name:
+          type: string
+        display_name:
+          type: string
+
+    SpineSmilResponse:
+      type: object
+      required:
+        - text_src
+        - audio_src
+        - clip_start
+        - clip_end
+        - duration
+      properties:
+        text_src:
+          type: string
+        audio_src:
+          type: string
+        clip_start:
+          type: integer
+        clip_end:
+          type: integer
+        duration:
+          type: integer
+
+    SpineRegionResponse:
+      type: object
+      required:
+        - height
+        - width
+        - x
+        - y
+      properties:
+        height:
+          type: integer
+        width:
+          type: integer
+        x:
+          type: integer
+        y:
+          type: integer
+
+    AuthorResponse:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          nullable: true
+
+    LibrarySeriesResponse:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          nullable: true
+
+    FormatReadingResponse:
+      type: object
+      required:
+        - latest
+      properties:
+        percentage:
+          type: number
+          format: double
+          nullable: true
+        latest:
+          type: boolean
+        ojd_link:
+          type: string
+          nullable: true
+
+    ShortPublisherResponse:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    AdditionalAttributesResponse:
+      type: object
+      properties:
+        subtitle:
+          type: string
+          nullable: true
+
+    AutocompleteResponse:
+      type: object
+      required:
+        - auto_complete
+        - auto_complete_mag
+        - did_you_mean
+        - did_you_mean_mag
+      properties:
+        auto_complete:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutocompleteEntry'
+          description: Book matches
+        auto_complete_mag:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutocompleteEntry'
+          description: Magazine matches
+        did_you_mean:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutocompleteEntry'
+          description: Book suggestions
+        did_you_mean_mag:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutocompleteEntry'
+          description: Magazine suggestions
+
+    AutocompleteEntry:
+      type: object
+      required:
+        - text
+        - position
+      properties:
+        text:
+          type: string
+        position:
+          type: integer
+
+    ProfileAuthorPreferenceBody:
+      type: object
+      required:
+        - author_ids
+      properties:
+        author_ids:
+          type: array
+          items:
+            type: integer
+
+    OnboardingAuthorResponse:
+      type: object
+      required:
+        - onboarding_authors
+      properties:
+        onboarding_authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/OnboardingAuthor'
+
+    OnboardingAuthor:
+      type: object
+      required:
+        - id
+        - name
+        - titles
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        titles:
+          type: array
+          items:
+            type: string
+
+    CategoryListResponse:
+      type: object
+      required:
+        - categories
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryResponse'
+
+    PersonResponse:
+      type: object
+      required:
+        - count
+        - id
+        - show_filter
+        - social_meta_info
+        - sort_fields
+        - title
+        - type
+      properties:
+        bio:
+          type: string
+          nullable: true
+        count:
+          type: integer
+        id:
+          type: integer
+        image:
+          type: string
+          nullable: true
+        show_filter:
+          type: boolean
+        social_meta_info:
+          $ref: '#/components/schemas/SocialMetaInfoResponse'
+        sort_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SortFieldResponse'
+        title:
+          type: string
+        type:
+          type: string
+
+    RecommendedProductResponse:
+      type: object
+      required:
+        - products
+        - page_token
+      properties:
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductResponse'
+        page_token:
+          type: string
+
+    ProfilePreferencesResponse:
+      type: object
+      required:
+        - profileid
+        - segmentQA
+        - categories
+      properties:
+        profileid:
+          type: integer
+          format: int64
+        segmentQA:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionResponse'
+        categories:
+          type: array
+          items:
+            type: integer
+
+    ProfileStateResponse:
+      type: object
+      required:
+        - profile_state
+        - re_onboard
+      properties:
+        profile_state:
+          type: string
+        re_onboard:
+          type: boolean
+
+    FacetListResponse:
+      type: object
+      required:
+        - facets
+      properties:
+        facets:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacetResponse'
+        products_count:
+          type: integer
+          nullable: true
+
+    TrendingSearchResponse:
+      type: object
+      required:
+        - phrases
+      properties:
+        phrases:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrendingSearchEntry'
+
+    ThemeCollectionListResponse:
+      type: object
+      required:
+        - themes
+      properties:
+        themes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThemeCollectionResponse'
+
+    ProfileCategoryPreferenceBody:
+      type: object
+      required:
+        - category_ids
+      properties:
+        category_ids:
+          type: array
+          items:
+            type: integer
+
+    RepairDaysBody:
+      type: object
+      required:
+        - repair_days
+      properties:
+        repair_days:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepairDay'
+
+    RepairDay:
+      type: object
+      required:
+        - date
+        - repaired
+      properties:
+        date:
+          type: string
+        repaired:
+          type: boolean
+
+    EditorialEntriesResponse:
+      type: object
+      required:
+        - entries
+      properties:
+        entries:
+          type: array
+          items:
+            type: object
+
+    SeriesResponse:
+      type: object
+      required:
+        - id
+        - type
+        - title
+        - description
+        - content_type
+        - authors
+        - narrators
+        - volumes
+        - avg_series_rating
+        - total_ratings
+        - cover_images
+        - show_filter
+        - sort_fields
+        - categories
+        - social_meta_info
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        content_type:
+          type: string
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShortAuthorResponse'
+        narrators:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShortNarratorResponse'
+        volumes:
+          type: integer
+        avg_series_rating:
+          type: number
+          format: float
+        total_ratings:
+          type: integer
+        cover_images:
+          type: array
+          items:
+            $ref: '#/components/schemas/CoverImageResponse'
+        show_filter:
+          type: boolean
+        sort_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SortFieldResponse'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryResponse'
+        social_meta_info:
+          $ref: '#/components/schemas/SocialMetaInfoResponse'
+
+    OnboardingQuestionsResponse:
+      type: object
+      required:
+        - onboarding_questions
+      properties:
+        onboarding_questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/OnboardingQuestion'
+
+    OnboardingQuestion:
+      type: object
+      required:
+        - id
+        - title
+        - subtitle
+        - answers
+        - analyticsName
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        subtitle:
+          type: string
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/OnboardingQuestionAnswer'
+        analyticsName:
+          type: string
+        skippable:
+          type: boolean
+          default: false
+        footer:
+          type: string
+          nullable: true
+        buttonText:
+          type: string
+          nullable: true
+        skipButtonText:
+          type: string
+          nullable: true
+        is_multiple_choices:
+          type: boolean
+          default: false
+
+    OnboardingQuestionAnswer:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        image:
+          type: string
+          nullable: true
+        hint:
+          type: string
+          nullable: true
+        skip_follow_up_questions:
+          type: boolean
+          default: false
+
+    OnboardingAnswersBody:
+      type: object
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/OnboardingAnswer'
+          nullable: true
+        reading_habit_campaign_opt_in:
+          type: boolean
+          nullable: true
+
+    OnboardingAnswer:
+      type: object
+      required:
+        - question_id
+        - answer_ids
+      properties:
+        question_id:
+          type: integer
+        answer_ids:
+          type: array
+          items:
+            type: integer
+
+    UpdateAccountDetailsBody:
+      type: object
+      required:
+        - first_name
+        - last_name
+        - phone_number
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone_number:
+          type: string
+
+    UpdateAccountBody:
+      type: object
+      properties:
+        settings:
+          type: object
+          properties:
+            parental_control_pin:
+              type: string
+              nullable: true
+            pincode_enabled:
+              type: boolean
+              nullable: true
+
+    AccountResponse:
+      type: object
+      required:
+        - id
+        - email
+        - country
+        - sign_in_count
+        - login_token
+        - accept_newsletter
+        - accept_push
+        - emailable
+        - user_type
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        country:
+          type: string
+        sign_in_count:
+          type: integer
+        login_token:
+          type: string
+        phone_number:
+          type: string
+          nullable: true
+        accept_newsletter:
+          type: boolean
+        accept_push:
+          type: boolean
+        emailable:
+          type: boolean
+        user_type:
+          type: string
+        first_name:
+          type: string
+          nullable: true
+        last_name:
+          type: string
+          nullable: true
+        user_sub_states:
+          type: array
+          nullable: true
+          items:
+            type: string
+        settings:
+          type: object
+          nullable: true
+          properties:
+            parental_control_pin:
+              type: string
+              nullable: true
+            pincode_enabled:
+              type: boolean
+              nullable: true
+        referral_url:
+          type: string
+          nullable: true
+        first_app_logged_in:
+          type: integer
+          format: int64
+          nullable: true
+        channel:
+          type: string
+          nullable: true
+
+    ProfileSettings:
+      type: object
+      properties:
+        global_format_filter:
+          type: array
+          nullable: true
+          items:
+            type: string
+        global_language_filter:
+          type: array
+          nullable: true
+          items:
+            type: string
+        profile_was_onboarded:
+          type: boolean
+          nullable: true
+
+    ShortAuthorResponse:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    ShortNarratorResponse:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    ShortenSeriesResponse:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          nullable: true
+
+    FormatResponse:
+      type: object
+      required:
+        - identifier
+        - type
+        - img_url
+        - publication_date
+        - publisher
+        - cover_ratio
+        - state
+        - free
+        - purchased
+        - time_limited
+        - preview
+        - translators
+      properties:
+        identifier:
+          type: integer
+        type:
+          $ref: '#/components/schemas/FormatType'
+        img_url:
+          type: string
+        publication_date:
+          type: string
+        publisher:
+          $ref: '#/components/schemas/ShortPublisherResponse'
+        pages:
+          type: integer
+          nullable: true
+        duration:
+          type: integer
+          nullable: true
+        cover_ratio:
+          type: number
+          format: float
+        cover_color:
+          type: string
+          nullable: true
+        readings:
+          allOf:
+            - $ref: '#/components/schemas/FormatReadingResponse'
+          nullable: true
+        state:
+          type: string
+        free:
+          type: boolean
+        purchased:
+          type: boolean
+        time_limited:
+          type: boolean
+        publisher_price_total:
+          type: number
+          format: double
+          nullable: true
+        publisher_price_per_page:
+          type: number
+          format: double
+          nullable: true
+        preview:
+          type: boolean
+        read_and_listen:
+          type: boolean
+          nullable: true
+        translators:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShortTranslatorResponse'
+        accessibility_features:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AccessibilityFeatureResponse'
+
+    ProfileProductResponse:
+      type: object
+      required:
+        - in_library
+        - is_completed
+        - is_ongoing
+      properties:
+        in_library:
+          type: boolean
+        is_completed:
+          type: boolean
+        is_ongoing:
+          type: boolean
+        referral_url:
+          type: string
+          nullable: true
+
+    ProductBadgeResponse:
+      type: object
+      required:
+        - short_label
+        - long_label
+        - type
+      properties:
+        short_label:
+          type: string
+        long_label:
+          type: string
+        type:
+          type: string
+
+    LibraryFilterResponse:
+      type: object
+      required:
+        - name
+        - display_name
+        - type
+        - allowed_values
+      properties:
+        name:
+          type: string
+        display_name:
+          type: string
+        type:
+          type: string
+          enum: [BOOLEAN, STRING, INTEGET, UNKNOWN]
+        allowed_values:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryFilterOptionResponse'
+
+    SeriesEntryResponse:
+      type: object
+      properties:
+        series:
+          allOf:
+            - $ref: '#/components/schemas/LibrarySeriesResponse'
+          nullable: true
+
+    AuthorsEntryResponse:
+      type: object
+      properties:
+        author:
+          allOf:
+            - $ref: '#/components/schemas/AuthorResponse'
+          nullable: true
+
+    BaseHomeEntryResponse:
+      type: object
+      required:
+        - id
+        - type
+        - selection
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        selection:
+          $ref: '#/components/schemas/HomeSelectionResponse'
+
+    HomeSelectionResponse:
+      type: object
+      required:
+        - id
+        - title
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          nullable: true
+        title:
+          type: string
+        detail:
+          type: string
+          nullable: true
+        social_meta_info:
+          allOf:
+            - $ref: '#/components/schemas/SocialMetaInfoResponse'
+          nullable: true
+        additional_attributes:
+          allOf:
+            - $ref: '#/components/schemas/AdditionalAttributesResponse'
+          nullable: true
+        small_image:
+          type: string
+          nullable: true
+
+    SpineResponse:
+      type: object
+      required:
+        - spine_id
+        - spine_href
+        - spine_size
+        - spine_viewport_width
+        - spine_viewport_height
+        - spine_mimetype
+        - spine_opf_root
+        - spine_rendition_layout
+        - spine_start_percent
+        - spine_stop_percent
+        - spine_linear
+      properties:
+        spine_id:
+          type: string
+        spine_href:
+          type: string
+        spine_url:
+          type: string
+          nullable: true
+        spine_size:
+          type: integer
+        spine_viewport_width:
+          type: integer
+        spine_viewport_height:
+          type: integer
+        spine_mimetype:
+          type: string
+        spine_opf_root:
+          type: string
+        spine_rendition_layout:
+          type: string
+        spine_roi:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SpineRegionResponse'
+        spine_spread:
+          type: string
+          nullable: true
+        spine_start_percent:
+          type: number
+          format: double
+        spine_stop_percent:
+          type: number
+          format: double
+        spine_linear:
+          type: boolean
+        spine_smil:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SpineSmilResponse'
+
+    TocElementResponse:
+      type: object
+      properties:
+        name:
+          type: string
+          nullable: true
+        src:
+          type: string
+          nullable: true
+        idref:
+          type: string
+          nullable: true
+        childrens:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TocElementResponse'
+
+    UserStreakStateByDayResponse:
+      type: object
+      required:
+        - date
+        - state
+      properties:
+        date:
+          type: string
+          format: date
+          description: LocalDate
+        state:
+          type: string
+          description: Streak state enum
+
+    CategoryResponse:
+      type: object
+      required:
+        - id
+        - title
+        - content_type
+        - products_count
+        - show_filter
+        - sort_fields
+        - sub_categories
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content_type:
+          type: string
+        bgc:
+          type: string
+          nullable: true
+          description: Background color
+        large_image:
+          type: string
+          nullable: true
+        small_image:
+          type: string
+          nullable: true
+        products_count:
+          type: integer
+        show_filter:
+          type: boolean
+        sort_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SortFieldResponse'
+        sub_categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubCategoryResponse'
+
+    SocialMetaInfoResponse:
+      type: object
+      required:
+        - followers
+        - notify
+        - subscribed
+      properties:
+        followers:
+          type: integer
+        notify:
+          type: boolean
+        subscribed:
+          type: boolean
+
+    SortFieldResponse:
+      type: object
+      required:
+        - field
+        - default
+      properties:
+        field:
+          type: string
+        default:
+          type: boolean
+
+    FollowRequestBody:
+      type: object
+      required:
+        - subscribe
+        - notify
+      properties:
+        subscribe:
+          type: boolean
+        notify:
+          type: boolean
+
+    SendEmailVisitorBody:
+      type: object
+      required:
+        - source
+        - eventName
+        - payload
+      properties:
+        source:
+          type: string
+          default: app
+        eventName:
+          type: string
+          default: activation_email_request
+        payload:
+          type: object
+          required:
+            - customer_id
+          properties:
+            customer_id:
+              type: string
+
+    FeedbackBodyRequest:
+      type: object
+      required:
+        - review
+      properties:
+        review:
+          type: object
+          required:
+            - trigger
+            - rating
+          properties:
+            additional_data:
+              type: object
+              nullable: true
+              additionalProperties: true
+            comment:
+              type: string
+              nullable: true
+            trigger:
+              type: string
+            rating:
+              type: integer
+
+    RegistrationBody:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          type: object
+          required:
+            - email
+            - password
+            - accept_newsletter
+          properties:
+            email:
+              type: string
+              format: email
+            password:
+              type: string
+            accept_newsletter:
+              type: boolean
+
+    ForgotPasswordBody:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+
+    UsageBlockBodyRequest:
+      type: object
+      required:
+        - usageblocks
+      properties:
+        usageblocks:
+          type: array
+          items:
+            type: object
+            required:
+              - format_type
+              - start_percentage
+              - end_percentage
+              - start_time
+              - end_time
+            properties:
+              format_type:
+                type: string
+              start_percentage:
+                type: number
+                format: double
+              end_percentage:
+                type: number
+                format: double
+              start_duration:
+                type: number
+                format: double
+                nullable: true
+              end_duration:
+                type: number
+                format: double
+                nullable: true
+              start_page:
+                type: number
+                format: double
+                nullable: true
+              end_page:
+                type: number
+                format: double
+                nullable: true
+              start_time:
+                type: integer
+                format: int64
+              end_time:
+                type: integer
+                format: int64
+              player_speed:
+                type: number
+                format: double
+                nullable: true
+              source:
+                type: string
+                nullable: true
+              mode:
+                type: string
+                nullable: true
+
+    ReviewBody:
+      type: object
+      required:
+        - comment
+      properties:
+        comment:
+          type: object
+          required:
+            - text
+            - rating
+          properties:
+            text:
+              type: string
+            rating:
+              type: integer
+        access:
+          type: string
+          default: public
+
+    DownloadedProductIdsToFilter:
+      type: object
+      required:
+        - downloaded_product_ids
+      properties:
+        downloaded_product_ids:
+          type: array
+          items:
+            type: integer
+
+    CreateCustomListBody:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+
+    ReportReviewBody:
+      type: object
+      required:
+        - comment_id
+        - inappropriate
+      properties:
+        comment_id:
+          type: string
+        inappropriate:
+          type: string
+
+    CustomListsOperationBody:
+      type: object
+      required:
+        - operations
+      properties:
+        operations:
+          type: array
+          items:
+            type: object
+            required:
+              - product_id
+              - list_id
+              - type
+            properties:
+              product_id:
+                type: integer
+              list_id:
+                type: string
+              type:
+                type: string
+                enum: [add, remove]
+
+    YearlyUsageDataResponse:
+      type: object
+      required:
+        - upddate
+        - usagetime
+      properties:
+        upddate:
+          type: string
+          description: Month identifier
+        usagetime:
+          type: number
+          format: double
+          description: Usage time in seconds
+
+    YearlyReadingTimeResponse:
+      type: object
+      required:
+        - profile_id
+        - average_readtime_in_seconds
+        - monthwise_readtime_in_seconds
+      properties:
+        profile_id:
+          type: integer
+        average_readtime_in_seconds:
+          type: number
+          format: double
+        monthwise_readtime_in_seconds:
+          type: array
+          items:
+            $ref: '#/components/schemas/YearlyUsageDataResponse'
+
+    ReadingKpiResponse:
+      type: object
+      required:
+        - key
+        - value
+      properties:
+        key:
+          type: string
+          description: KPI key identifier
+        value:
+          type: integer
+          description: KPI value
+
+    ReadingStatsResponse:
+      type: object
+      required:
+        - kpi
+      properties:
+        kpi:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadingKpiResponse'
+
+    ReadingTimeContainerResponse:
+      type: object
+      required:
+        - reading_time
+      properties:
+        reading_time:
+          $ref: '#/components/schemas/ReadingTimeResponse'
+
+    DailyUsageDataResponse:
+      type: object
+      required:
+        - upddate
+        - usage_time
+      properties:
+        upddate:
+          type: number
+          format: double
+          description: Day identifier
+        usage_time:
+          type: number
+          format: double
+          description: Usage time in seconds
+
+    ReadingTimeResponse:
+      type: object
+      required:
+        - month
+        - year
+        - total_reading_seconds_this_month
+        - total_reading_seconds_last_month
+        - daywise_readtime_in_seconds_this_month
+        - daywise_readtime_in_seconds_last_month
+      properties:
+        month:
+          type: integer
+        year:
+          type: integer
+        total_reading_seconds_this_month:
+          type: integer
+          format: int64
+        total_reading_seconds_last_month:
+          type: integer
+          format: int64
+        daywise_readtime_in_seconds_this_month:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyUsageDataResponse'
+        daywise_readtime_in_seconds_last_month:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyUsageDataResponse'
+
+    OfferResponse:
+      type: object
+      properties:
+        period:
+          type: integer
+          nullable: true
+          description: Offer period
+        periodicity:
+          type: string
+          nullable: true
+          enum: [DAYS]
+          description: Periodicity unit
+
+    SubscriptionResponse:
+      type: object
+      required:
+        - id
+        - subscription_name
+      properties:
+        id:
+          type: integer
+          format: int64
+        renewal_date:
+          type: string
+          format: date-time
+          nullable: true
+        renewal_amount:
+          type: number
+          format: double
+          nullable: true
+        subscription_name:
+          type: string
+        hrs_replenish_date:
+          type: string
+          format: date-time
+          nullable: true
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+        stop_date:
+          type: string
+          format: date-time
+          nullable: true
+        cancel_date:
+          type: string
+          format: date-time
+          nullable: true
+        offer:
+          allOf:
+            - $ref: '#/components/schemas/OfferResponse'
+          nullable: true
+
+    ReadingActivityResponse:
+      type: object
+      required:
+        - profile_id
+        - time_spent_secs
+      properties:
+        profile_id:
+          type: integer
+          format: int64
+        time_spent_secs:
+          type: integer
+          format: int64
+
+    MarketResponse:
+      type: object
+      required:
+        - market_id
+        - domain
+        - currency
+        - market_name
+        - country_code
+        - primary_languages
+        - allowed_languages
+      properties:
+        market_id:
+          type: integer
+          format: int64
+        domain:
+          type: string
+        currency:
+          type: string
+        market_name:
+          type: string
+        country_code:
+          type: string
+        primary_languages:
+          type: array
+          items:
+            type: string
+        allowed_languages:
+          type: array
+          items:
+            type: string
+
+    UpdateBookSettingsBody:
+      type: object
+      properties:
+        audio_speed:
+          type: number
+          format: float
+        font_size:
+          type: integer
+        font_family:
+          type: string
+        margin_size:
+          type: string
+        sleep_timer:
+          type: integer
+        spread:
+          type: boolean
+        theme:
+          type: string
+
+    BookSettingsResponse:
+      type: object
+      required:
+        - audio_speed
+        - font_size
+        - font_family
+        - margin_size
+        - sleep_timer
+        - spread
+        - theme
+      properties:
+        audio_speed:
+          type: number
+          format: float
+        font_size:
+          type: integer
+        font_family:
+          type: string
+        margin_size:
+          type: string
+        sleep_timer:
+          type: integer
+        spread:
+          type: boolean
+        theme:
+          type: string
+
+    ProductMappingMetadataResponse:
+      type: object
+      required:
+        - id
+        - synched_at
+        - mapping_file_size
+        - signed_url
+      properties:
+        id:
+          type: integer
+        synched_at:
+          type: integer
+          format: int64
+        mapping_file_size:
+          type: integer
+        signed_url:
+          type: string
+
+    AudioFileResponse:
+      type: object
+      required:
+        - idref
+        - start_at
+        - end_at
+        - duration
+        - uri
+      properties:
+        idref:
+          type: string
+          description: Audio file identifier
+        title:
+          type: string
+          nullable: true
+          description: Audio file title
+        file_id:
+          type: string
+          nullable: true
+          description: File ID
+        start_at:
+          type: integer
+          description: Start time in milliseconds
+        end_at:
+          type: integer
+          description: End time in milliseconds
+        duration:
+          type: integer
+          description: Duration in milliseconds
+        uri:
+          type: string
+          description: Audio file URL
+
+    AudioCryptKeyResponse:
+      type: object
+      required:
+        - key
+        - url
+      properties:
+        key:
+          type: string
+          description: Encryption key
+        url:
+          type: string
+          description: Key URL
+
+    AudioPackageResponse:
+      type: object
+      required:
+        - duration
+        - files
+      properties:
+        duration:
+          type: integer
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/AudioFileResponse'
+        crypt_keys:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AudioCryptKeyResponse'
+        sliced_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ReviewsPageResponse:
+      type: object
+      required:
+        - comments
+      properties:
+        comments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewResponse'
+
+    QuestionResponse:
+      type: object
+      required:
+        - key
+        - value
+      properties:
+        key:
+          type: string
+        value:
+          type: array
+          items:
+            type: string
+
+    ValueResponse:
+      type: object
+      required:
+        - count
+        - selected
+        - text
+      properties:
+        count:
+          type: integer
+          description: Number of items with this value
+        display_name:
+          type: string
+          nullable: true
+          description: Display name for the value
+        id:
+          type: integer
+          nullable: true
+          description: Value identifier
+        selected:
+          type: boolean
+          description: Whether this value is selected
+        text:
+          type: string
+          description: Value text
+
+    RangeResponse:
+      type: object
+      required:
+        - max
+        - max_selected
+        - min
+        - min_selected
+      properties:
+        max:
+          type: string
+          description: Maximum value
+        max_selected:
+          type: string
+          description: Maximum selected value
+        min:
+          type: string
+          description: Minimum value
+        min_selected:
+          type: string
+          description: Minimum selected value
+
+    FacetResponse:
+      type: object
+      required:
+        - attribute
+        - is_range
+      properties:
+        attribute:
+          type: string
+        is_range:
+          type: boolean
+        primary_facet:
+          type: boolean
+          nullable: true
+        range:
+          allOf:
+            - $ref: '#/components/schemas/RangeResponse'
+          nullable: true
+        values:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ValueResponse'
+
+    TrendingSearchEntry:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+
+    ThemeProductSelectionResponse:
+      type: object
+      required:
+        - id
+        - title
+        - show_filter
+        - sort_fields
+      properties:
+        id:
+          type: integer
+          description: Selection ID
+        title:
+          type: string
+          description: Selection title
+        color:
+          type: string
+          nullable: true
+          description: Theme color
+        show_filter:
+          type: boolean
+          description: Whether to show filter
+        sort_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SortFieldResponse'
+          description: Available sort fields
+
+    ThemeCollectionResponse:
+      type: object
+      required:
+        - id
+        - title
+        - image
+        - products_count
+        - show_filter
+        - sort_fields
+        - children
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        image:
+          type: string
+        color:
+          type: string
+          nullable: true
+        products_count:
+          type: integer
+        show_filter:
+          type: boolean
+        sort_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/SortFieldResponse'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/ThemeProductSelectionResponse'
+
+    ReportClickRequest:
+      type: object
+      required:
+        - product_id
+      properties:
+        product_id:
+          type: integer
+
+    OjdResponse:
+      type: object
+      required:
+        - reporting_data
+      properties:
+        reporting_data:
+          type: object
+          required:
+            - ojd_link
+          properties:
+            ojd_link:
+              type: string
+              nullable: true
+              description: OJD reporting link
+
+    FollowingListsResponse:
+      type: object
+      required:
+        - selections
+      properties:
+        selections:
+          type: array
+          items:
+            $ref: '#/components/schemas/LibraryListResponse'
+
+    ReviewResponse:
+      type: object
+      required:
+        - created_at
+        - id
+        - pseudo
+        - rating
+        - text
+      properties:
+        created_at:
+          type: string
+        id:
+          type: string
+        pseudo:
+          type: string
+        rating:
+          type: number
+          format: float
+        text:
+          type: string
+
+    RatingsResponse:
+      type: object
+      required:
+        - group_rating
+        - number_of_reviews
+        - number_of_rates
+        - avg_rate
+        - user_rate
+      properties:
+        group_rating:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+          description: Map of rating groups to their values
+        number_of_reviews:
+          type: integer
+        number_of_rates:
+          type: integer
+        avg_rate:
+          type: number
+          format: float
+        user_rate:
+          type: number
+          format: float
+
+    ProductCategoriesResponse:
+      type: object
+      required:
+        - categories
+      properties:
+        categories:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - title
+              - sub_categories
+              - sort_fields
+            properties:
+              id:
+                type: integer
+              title:
+                type: string
+              sub_categories:
+                type: array
+                items:
+                  type: object
+                  description: Nested Category (recursive)
+              show_filter:
+                type: boolean
+                nullable: true
+              sort_fields:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SortFieldResponse'
+
+paths:
+  /feedbacks/reviews:
+    post:
+      summary: Submit review
+      description: Submit app feedback review
+      tags:
+        - Feedback
+      parameters:
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Country-Code'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedbackBodyRequest'
+      responses:
+        '200':
+          description: Review submitted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notify/genericEvent:
+    post:
+      summary: Send generic event
+      description: Send generic notification event
+      tags:
+        - Notifications
+      parameters:
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Country-Code'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailVisitorBody'
+      responses:
+        '200':
+          description: Event sent successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /obgateway/v1/me/subscription:
+    get:
+      summary: Get user subscription details
+      description: Get current user subscription information
+      tags:
+        - Subscription
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Subscription details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reading-diary/v1/me/reading_time:
+    get:
+      summary: Get reading time statistics
+      description: Get reading time statistics for a specific month
+      tags:
+        - Reading Analytics
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reading time statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadingTimeContainerResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reading-diary/v1/me/statistics:
+    get:
+      summary: Get reading statistics
+      description: Get reading statistics for a specific year
+      tags:
+        - Reading Analytics
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reading statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadingStatsResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reading-diary/v1/me/yearlystats:
+    get:
+      summary: Get yearly reading statistics
+      description: Get yearly reading statistics for the current profile
+      tags:
+        - Reading Analytics
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Yearly reading statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YearlyReadingTimeResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /user/v1/me/profile:
+    post:
+      summary: Create profile
+      description: Create a new profile (no X-Profile-Token required)
+      tags:
+        - Profile Management
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProfileBody'
+      responses:
+        '200':
+          description: Profile created or updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+    
+    patch:
+      summary: Update profile
+      description: Update an existing profile (no X-Profile-Token required)
+      tags:
+        - Profile Management
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileBody'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+    
+    delete:
+      summary: Delete profile
+      description: Delete a profile (no X-Profile-Token required)
+      tags:
+        - Profile Management
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginKeyBody'
+      responses:
+        '200':
+          description: Profile deleted successfully
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /user/v1/profile/authorize:
+    post:
+      summary: Authorize profile
+      description: Authorize profile and get token (no X-Profile-Token required)
+      tags:
+        - Profile Management
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginKeyBody'
+      responses:
+        '200':
+          description: Profile authorized successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileTokenResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /user/v1/me/profiles:
+    get:
+      summary: List profiles
+      description: List all profiles for account (no X-Profile-Token required)
+      tags:
+        - Profile Management
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Profiles retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfilesResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /user/v2/me/login/token:
+    get:
+      summary: Get auto-login token
+      description: Get auto-login token (no X-Profile-Token required)
+      tags:
+        - Profile Management
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Token retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoLoginLinkResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /user/v1/avatars:
+    get:
+      summary: Get available avatars
+      description: Get available avatars (no X-Profile-Token required)
+      tags:
+        - Profile Management
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Avatars retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvatarsResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/products/{id}:
+    get:
+      summary: Get product details
+      description: Get details for a specific product
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Product ID
+      responses:
+        '200':
+          description: Product details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+              example:
+                error:
+                  code: 7111
+                  key: Unauthorized
+                  message: Not Authorized
+                  description: Not Authorized
+
+  /library/v1/format/{formatId}/reporting_data:
+    get:
+      summary: Get reporting data
+      description: Get reporting data for a format
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: formatId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reporting data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OjdResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /discovery/v1/author/{id}:
+    get:
+      summary: Get author details
+      tags:
+        - Content Metadata
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonResponse'
+        '403':
+          $ref: '#/components/responses/Unauthorized'
+
+  /discovery/v1/author/onboarding:
+    get:
+      summary: Get author onboarding
+      tags:
+        - Content Metadata
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: category_ids
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: per
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingAuthorResponse'
+
+  /discovery/v1/autocomplete:
+    get:
+      summary: Autocomplete search
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: search_phrase
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutocompleteResponse'
+
+  /discovery/v1/bookcard/selections:
+    get:
+      summary: Get bookcard selections
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: product_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SelectionListResponse'
+
+  /discovery/v1/brands:
+    get:
+      summary: Get brands
+      tags:
+        - Content Metadata
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: per
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandsResponse'
+
+  /discovery/v1/categories:
+    get:
+      summary: List categories
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: content_type
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryListResponse'
+
+  /discovery/v1/categories/{id}:
+    get:
+      summary: Get category details
+      tags:
+        - Onboarding
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: content_type
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryListResponse'
+
+  /discovery/v1/categories/onboarding:
+    get:
+      summary: Category onboarding
+      tags:
+        - Onboarding
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: content_type
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingCategoryResponse'
+
+  /discovery/v1/categories/onboarding/{categoryId}/subcategories:
+    get:
+      summary: Get subcategories
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: content_type
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingSubCategoryResponse'
+
+  /discovery/v1/categories/teenagers:
+    get:
+      summary: Teenager categories
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryListResponse'
+
+  /discovery/v1/facets:
+    get:
+      summary: Get facets
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacetListResponse'
+
+  /discovery/v1/librarian/sessions/{sessionId}/query:
+    get:
+      summary: Query librarian session
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: profile_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: agent_engine_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiLibrarianResponse'
+
+  /discovery/v1/narrator/{id}:
+    get:
+      summary: Get narrator details
+      tags:
+        - Content Metadata
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonResponse'
+
+  /discovery/v1/{path}/{id}/products:
+    get:
+      summary: Get products by path
+      tags:
+        - Content Metadata
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [authors, books, categories, series, narrators]
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: content_type
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+        - name: showupcoming
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsPageResponse'
+
+  /discovery/{version}/{path}/{id}/products:
+    get:
+      summary: Get products by versioned path
+      description: Generic versioned endpoint for getting products
+      tags:
+        - Content Metadata
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+          description: API version (e.g., v1, v2)
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Resource path (URL encoded)
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: sort
+          in: query
+          schema:
+            type: string
+        - name: showupcoming
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsPageResponse'
+
+  /discovery/v1/popular/series/facets:
+    get:
+      summary: Popular series facets
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacetListResponse'
+
+  /discovery/v1/products/upnext:
+    get:
+      summary: Get up next products
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: product_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: series_id
+          in: query
+          schema:
+            type: integer
+        - name: series_volume
+          in: query
+          schema:
+            type: integer
+        - name: author_id
+          in: query
+          schema:
+            type: integer
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: per
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: format
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendedProductResponse'
+
+  /discovery/v1/profile/preferences:
+    get:
+      summary: Get profile preferences
+      tags:
+        - Onboarding
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfilePreferencesResponse'
+
+  /discovery/v1/profile/state:
+    get:
+      summary: Get profile state
+      tags:
+        - Onboarding
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileStateResponse'
+
+  /discovery/v1/recommendations:
+    get:
+      summary: Get recommendations
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: product_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: sort
+          in: query
+          schema:
+            type: string
+        - name: showupcoming
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsPageResponse'
+
+  /discovery/v1/search/products/books:
+    get:
+      summary: Search books
+      description: Search for books
+      tags:
+        - Search & Browse
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: search_phrase
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: sort
+          in: query
+          schema:
+            type: string
+        - name: showupcoming
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Search results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsPageResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /discovery/v1/search/products/facets:
+    get:
+      summary: Search facets
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: search_phrase
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacetListResponse'
+
+  /discovery/v1/search/products/topsearch:
+    get:
+      summary: Top search results
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: per
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendingSearchResponse'
+
+  /discovery/v1/series/{series_id}/products:
+    get:
+      summary: Get series products
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: content_type
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesProductsResponse'
+
+  /discovery/v1/themes:
+    get:
+      summary: Get themes
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThemeCollectionListResponse'
+
+  /discovery/v1/upcoming/products:
+    get:
+      summary: Upcoming products
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsPageResponse'
+
+  /discovery/v2/ai/vertex/first/conversation:
+    get:
+      summary: AI conversation
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationStartersResponse'
+
+  /discovery/v2/categories/{category_id}/series:
+    get:
+      summary: Get category series
+      tags:
+        - Content Metadata
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: category_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesPageResponse'
+
+  /discovery/v2/popular/magazines:
+    get:
+      summary: Popular magazines
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesPageResponse'
+
+  /discovery/v2/popular/series:
+    get:
+      summary: Popular series
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesPageResponse'
+
+  /discovery/v2/search/editorial_entries:
+    get:
+      summary: Search editorial entries
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: per
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EditorialEntriesResponse'
+
+  /discovery/v2/search/products/magazines:
+    get:
+      summary: Search magazines
+      tags:
+        - Search & Browse
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: search_phrase
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesPageResponse'
+
+  /discovery/v2/series_selections/{series_selection_id}/series:
+    get:
+      summary: Get series selection
+      tags:
+        - Content Metadata
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: series_selection_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesPageResponse'
+
+  /discovery/v2/series/{series_id}:
+    get:
+      summary: Get series details
+      tags:
+        - Content Metadata
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: series_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesResponse'
+
+  /discovery/v3/onboarding/questions:
+    get:
+      summary: Onboarding questions
+      tags:
+        - Content Metadata
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: include_reading_history
+          in: query
+          required: true
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnboardingQuestionsResponse'
+
+  /discovery/v6/profile/streak_goals:
+    get:
+      summary: Get streak goals
+      tags:
+        - Onboarding
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStreakGoalResponse'
+  /reader/books/{format_id}/packages/epub:
+    get:
+      summary: Get EPUB package
+      description: Get EPUB package with encryption keys
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: format_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Format identifier
+      responses:
+        '200':
+          description: EPUB package retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpubPackageResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/custom_lists:
+    get:
+      summary: Get custom lists
+      description: Get user's custom lists
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Custom lists retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryListsResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/custom_lists/operations:
+    post:
+      summary: Custom list operations
+      description: Perform operations on custom lists (add/remove products)
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomListsOperationBody'
+      responses:
+        '200':
+          description: Operations completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/product/comment:
+    post:
+      summary: Report product comment
+      description: Report a product comment as inappropriate
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportReviewBody'
+      responses:
+        '200':
+          description: Comment reported successfully
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/product_lists:
+    post:
+      summary: Create product list
+      description: Create a new custom product list
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomListBody'
+      responses:
+        '200':
+          description: Product list created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryListResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/product_lists/{type}/products:
+    post:
+      summary: Add products to list
+      description: Add products to a specific product list with filtering
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: per
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: filter
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadedProductIdsToFilter'
+      responses:
+        '200':
+          description: Products added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsPageResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/products/{product_id}/comment:
+    post:
+      summary: Add comment to product
+      description: Add a comment/review to a product
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewBody'
+      responses:
+        '200':
+          description: Comment added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/products/{product_id}/completed:
+    post:
+      summary: Mark product completed
+      description: Mark a product as completed/finished
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Product marked as completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryListResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/library:
+    get:
+      summary: Get user library
+      description: Get user's library content
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Library retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryListsResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/library/following/content:
+    get:
+      summary: Get following content
+      description: Get content from followed items
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: per
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Following content retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FollowingListsResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v2/me/product_lists/{type}/products:
+    get:
+      summary: Get product list
+      description: Get products from a specific list type
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Country-Code'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - author
+              - brand_subscription
+              - completed
+              - custom
+              - downloaded
+              - offline
+              - ongoing
+              - following
+              - purchased
+              - want_to_read
+              - unknown
+          description: |
+            Product list type from LibraryListType enum:
+            - author: Books by specific author
+            - brand_subscription: Brand subscription content
+            - completed: Finished books
+            - custom: User-created custom lists
+            - downloaded: Downloaded for offline reading
+            - offline: Offline available content
+            - ongoing: Currently reading
+            - following: Content from followed items
+            - purchased: Purchased books
+            - want_to_read: Books marked to read later
+            - unknown: Unknown list type
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: List ID
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 0
+          description: Page number for pagination
+        - name: per
+          in: query
+          required: true
+          schema:
+            type: integer
+            default: 50
+          description: Items per page
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum:
+              - all
+              - kids
+              - teenagers
+            nullable: true
+          description: |
+            Content filter based on age appropriateness (ProfileFilter enum):
+            - all: All content (no restrictions)
+            - kids: Kids content only
+            - teenagers: Teenager content only
+        - name: filters
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+          description: Additional filter key-value pairs
+      responses:
+        '200':
+          description: Product list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductsPageResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /discovery/v3/home_entries:
+    get:
+      summary: Get home entries
+      description: Get home screen content entries
+      tags:
+        - Recommendations
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Home entries retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomeEntriesResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /discovery/v1/librarian/sessions:
+    post:
+      summary: Create librarian session
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiLibrarianSessionBody'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiLibrarianSessionResponse'
+
+  /discovery/v1/librarian/sessions/{sessionId}:
+    delete:
+      summary: Delete librarian session
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: profile_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: agent_engine_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+
+  /discovery/v1/notify/aptus:
+    post:
+      summary: Notify Aptus
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportClickRequest'
+      responses:
+        '200':
+          description: Success (empty response)
+
+  /discovery/v2/profile/streak_goals/repair:
+    patch:
+      summary: Repair streak goals
+      tags:
+        - Recommendations
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepairDaysBody'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserStreakGoalResponse'
+
+  /discovery/v1/author/preference:
+    put:
+      summary: Update author preference
+      tags:
+        - Onboarding
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileAuthorPreferenceBody'
+      responses:
+        '200':
+          description: Author preference updated (empty response)
+
+  /discovery/v2/category_preference:
+    put:
+      summary: Update category preference
+      tags:
+        - Onboarding
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileCategoryPreferenceBody'
+      responses:
+        '200':
+          description: Category preference updated (empty response)
+
+  /discovery/v5/profile/answers:
+    put:
+      summary: Update profile answers
+      tags:
+        - Onboarding
+      security: [{DeviceAuth: []}, {ProfileAuth: []}]
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OnboardingAnswersBody'
+      responses:
+        '200':
+          description: Profile answers updated (empty response)
+
+  
+
+  /user/v1/registrations:
+    post:
+      summary: Register new user
+      description: Create new user account
+      tags:
+        - User Account
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - $ref: '#/components/parameters/X-Country-Code'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationBody'
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /user/v1/forgot_password:
+    post:
+      summary: Request password reset
+      description: Request password reset email
+      tags:
+        - User Account
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordBody'
+      responses:
+        '200':
+          description: Password reset email sent
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /user/v1/sessions:
+    post:
+      summary: Sign in
+      description: Sign in with credentials
+      tags:
+        - User Account
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInBody'
+      responses:
+        '200':
+          description: Sign in successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+    delete:
+      summary: Sign out
+      description: Sign out current session
+      tags:
+        - User Account
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Sign out successful
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /user/v1.1/markets:
+    get:
+      summary: Get available markets
+      description: Get list of available markets
+      tags:
+        - User Account
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Markets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MarketResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /user/v1/me/reading/activity/feed:
+    get:
+      summary: Get reading activity feed
+      description: Get reading activity feed for all profiles
+      tags:
+        - User Account
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Reading activity feed retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReadingActivityResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /user/v1/me/account:
+    get:
+      summary: Get account details
+      description: Get current user account details
+      tags:
+        - User Account
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Account details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+    
+    patch:
+      summary: Update account settings or details
+      description: |
+        Update user account. Supports two request body types:
+        - UpdateAccountBody: Update parental control settings
+        - UpdateAccountDetailsBody: Update personal details (first name, last name, phone)
+      tags:
+        - User Account
+      security:
+        - DeviceAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/UpdateAccountBody'
+                - $ref: '#/components/schemas/UpdateAccountDetailsBody'
+      responses:
+        '200':
+          description: Account updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/books/{formatId}/position:
+    get:
+      summary: Get reading position
+      description: Get current reading position for a book
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: formatId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Format identifier
+      responses:
+        '200':
+          description: Reading position retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookReadingResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /usageblocks/v1/profile/{profileId}/format/{identifier}/usage:
+    post:
+      summary: Report usage
+      description: Report usage blocks for a format
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: identifier
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsageBlockBodyRequest'
+      responses:
+        '200':
+          description: Usage reported successfully
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/books/{format_id}/packages/audio:
+    get:
+      summary: Get audio package
+      description: Get audio package for a book
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: format_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Audio package retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioPackageResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/books/{format_id}/packages/audio_preview:
+    get:
+      summary: Get audio preview package
+      description: Get audio preview package for a book
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: format_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Audio preview package retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AudioPackageResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/books/{format_id}/packages/epub_preview:
+    get:
+      summary: Get EPUB preview package
+      description: Get EPUB preview package for a book
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: format_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: EPUB preview package retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EpubPackageResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/products/{productId}/sync:
+    get:
+      summary: Sync product reading data
+      description: Get product mapping metadata for syncing
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Product sync metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductMappingMetadataResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/settings:
+    get:
+      summary: Get reader settings
+      description: Get reader settings for the current profile
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      responses:
+        '200':
+          description: Reader settings retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookSettingsResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/profiles/{profileId}/books/{formatId}/position:
+    patch:
+      summary: Update reading position
+      description: Update current reading position for a book
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: profileId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: formatId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookReadingBodyRequest'
+      responses:
+        '200':
+          description: Reading position updated successfully
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/books/{format_id}/bookmarks:
+    get:
+      summary: Get bookmarks
+      description: Get all bookmarks for a book
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: format_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Bookmarks retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseBookmarks'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/profiles/{profile_id}/books/{format_id}/bookmarks:
+    post:
+      summary: Create bookmark
+      description: Create a new bookmark for a book
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: profile_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: format_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookmarkBody'
+      responses:
+        '200':
+          description: Bookmark created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookmarkResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/bookmarks/{bookmark_id}:
+    patch:
+      summary: Update bookmark
+      description: Update an existing bookmark
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: bookmark_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookmarkBody'
+      responses:
+        '200':
+          description: Bookmark updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookmarkResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+    delete:
+      summary: Delete bookmark
+      description: Delete a bookmark
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: bookmark_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Bookmark deleted successfully
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/product/{product_id}/custom_lists:
+    get:
+      summary: Get product custom lists
+      description: Get custom lists containing a product
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Custom lists retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryListsResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/product_lists/{list_id}:
+    patch:
+      summary: Update product list
+      description: Update a product list
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: list_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomListBody'
+      responses:
+        '200':
+          description: Product list updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryListResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/products/{id}/comment:
+    get:
+      summary: Get user comment
+      description: Get user's comment on a product
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Comment retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/{type}/{seriesId}/social_meta_info:
+    put:
+      summary: Update social meta info
+      description: Subscribe/unsubscribe and set notifications for series or author
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Type (series or author)
+        - name: seriesId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Series or author ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FollowRequestBody'
+      responses:
+        '200':
+          description: Social meta info updated successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /library/v1/product/{id}/rating_details:
+    get:
+      summary: Get rating details
+      description: Get rating details for a product
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Rating details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RatingsResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/products/{id}/categories:
+    get:
+      summary: Get product categories
+      description: Get categories for a product
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Product categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductCategoriesResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/products/{id}/comments:
+    get:
+      summary: Get product comments
+      description: Get all comments for a product
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: per
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Product comments retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewsPageResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /library/v1/me/comment/{comment_id}:
+    patch:
+      summary: Update comment
+      description: Update a comment
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: comment_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewBody'
+      responses:
+        '200':
+          description: Comment updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+  /reader/profiles/{profile_id}/settings:
+    patch:
+      summary: Update reader settings
+      description: Update reader settings for a profile
+      tags:
+        - Reader
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: profile_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBookSettingsBody'
+      responses:
+        '200':
+          description: Reader settings updated successfully
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkErrorResponse'
+
+tags:
+  - name: Search & Browse
+    description: Search, browse categories, and filter content
+  - name: Recommendations
+    description: Personalized recommendations, themes, and AI librarian
+  - name: Content Metadata
+    description: Detailed information about authors, narrators, series, and products
+  - name: Onboarding
+    description: User onboarding, preferences, and profile setup
+  - name: Library
+    description: User library, lists, comments, and ratings
+  - name: Reader
+    description: Reading functionality, bookmarks, positions, and content packages
+  - name: User Account
+    description: User account management, authentication, and sessions
+  - name: Profile Management
+    description: Profile creation, authorization, and management (no X-Profile-Token required)
+  - name: Reading Analytics
+    description: Reading statistics, time tracking, and activity
+  - name: Subscription
+    description: Subscription information and management
+  - name: Feedback
+    description: App feedback and reviews
+  - name: Notifications
+    description: Event notifications and messaging
