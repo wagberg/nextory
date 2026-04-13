@@ -274,6 +274,19 @@ class FormatType(enum.StrEnum):
     PDF = "pdf"
 
 
+class FormatState(enum.StrEnum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    DELETED = "DELETED"
+    UPCOMING = "UPCOMING"
+    GRACE_PERIOD = "GRACE_PERIOD"
+    UNKNOWN = "UNKNOWN"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "FormatState":
+        return cls.UNKNOWN
+
+
 @dataclass
 class FormatResponse(DataClassJSONMixin):
     identifier: int
@@ -281,7 +294,7 @@ class FormatResponse(DataClassJSONMixin):
     img_url: str
     publisher: ShortPublisherResponse
     cover_ratio: float
-    state: str
+    state: FormatState
     free: bool
     purchased: bool
     time_limited: bool

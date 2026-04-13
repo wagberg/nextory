@@ -1,195 +1,131 @@
 # Nextory Python API Client
 
-Python API client for Nextory audiobook service with support for authentication, profile management, audiobook library access, audio streaming, and progress syncing.
+Async Python client for the Nextory audiobook streaming service.
 
 ## Features
 
-- **Authentication**: Username/password authentication with two-tier auth (DeviceAuth + ProfileAuth)
-- **Profile Management**: List, select, and save profile configurations
-- **Library Access**: Fetch audiobooks from want_to_read, reading, and completed lists
-- **Audio Streaming**: Direct URL access and chunk streaming for HLS audio files
-- **Progress Syncing**: Read and update playback positions, report usage analytics
-- **Async/Await**: Built with aiohttp for async operations
-- **Music Assistant Ready**: Designed for future Music Assistant integration
+- **Authentication**: Two-tier auth (login token + profile token) with auto-refresh
+- **Library**: Browse ongoing, want_to_read, completed, and custom lists
+- **Streaming**: HLS audio package access for audiobook playback
+- **Progress**: Read/update playback positions, bookmarks, usage reporting
+- **Discovery**: Search, categories, recommendations, home entries
+- **Profiles**: List and select user profiles
 
 ## Installation
 
-Using `uv` (recommended):
-
 ```bash
-# Install uv if you haven't already
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Install the package in development mode
-uv pip install -e .
+pip install git+https://github.com/wagberg/nextory.git
 ```
 
-Using pip:
+Or for development:
 
 ```bash
-pip install -e .
+git clone https://github.com/wagberg/nextory.git
+cd nextory
+uv sync
 ```
 
 ## Quick Start
 
 ### 1. Select and Save Profile
 
-First, run the profile selection tool to authenticate and save your profile configuration:
-
 ```bash
-# Interactive mode
-nextory-select-profile
-
-# Or with command-line arguments
-nextory-select-profile --username your@email.com --password yourpassword --profile-name "Main"
+uv run nextory-select-profile
 ```
 
-This saves your profile configuration to `~/.config/nextory/profile.json`.
+This authenticates and saves your profile to `~/.config/nextory/profile.yaml`.
 
 ### 2. Use the Client
 
 ```python
 import asyncio
-from nextory import NextoryClient, ProfileConfig
+from nextory import NextoryClient
+from nextory.config import ProfileConfig
 
 async def main():
-    # Load saved profile
     config = ProfileConfig.load()
-    
-    # Create client
-    async with NextoryClient() as client:
-        # Authenticate
-        await client.authenticate(username, password, config.login_key)
-        
-        # List audiobooks
-        audiobooks = await client.get_library_audiobooks("want_to_read")
-        
-        # Get audio package
-        audio_package = await client.get_audio_package(format_id)
-        
-        # Get audio URLs
-        from nextory.streaming import get_audio_urls
-        urls = get_audio_urls(audio_package)
-        
-        # Stream audio chunks
-        from nextory.streaming import stream_audio_chunks
-        async for chunk in stream_audio_chunks(client._get_session(), urls[0]):
-            # Process audio chunk
-            pass
-        
-        # Get reading position
-        position = await client.get_reading_position(format_id)
-        
-        # Update reading position
-        await client.update_reading_position(
-            profile_id=config.profile_id,
-            format_id=format_id,
-            percentage=50.0,
-            elapsed_time=3600
-        )
+
+    async with NextoryClient(
+        login_token=config.login_token,
+        login_key=config.login_key,
+        profile_token=config.profile_token,
+        country="SE",
+    ) as client:
+        # Browse library
+        libs = await client.get_libraries()
+        books = await client.get_library("ongoing", libs.lists[0].id)
+
+        for book in books.products:
+            print(f"{book.title} by {', '.join(a.name for a in book.authors)}")
+
+        # Search
+        results = await client.search_books("Harry Potter", per=5)
+
+        # Get audio package for streaming
+        audio = await client.get_audio_package(format_id)
+
+        # Reading position
+        pos = await client.get_position(format_id)
+        await client.patch_position(format_id, percentage=50.0, elapsed_time=3600)
 
 asyncio.run(main())
 ```
 
-## API Reference
+## Key Methods
 
-### NextoryClient
+### Authentication
+- `login(username, password)` → login_token
+- `select_profile(login_key)` → profile_token
+- `get_profiles()` → list of profiles
 
-Main client class for interacting with Nextory API.
+### Library
+- `get_libraries()` → all lists (ongoing, want_to_read, completed, custom)
+- `get_library(list_type, list_id, page, per)` → products in a list
+- `add_to_library(product_id, list_id)` / `remove_from_library(product_id, list_id)`
+- `mark_completed(product_id)` / `unmark_completed(product_id)`
 
-**Methods:**
-- `authenticate(username, password, login_key)` - Authenticate with credentials
-- `get_library()` - Get user's library lists (product_lists and custom lists)
-- `get_library_audiobooks(list_type, page, per)` - Get audiobooks from library
-- `get_audiobook(product_id)` - Get single audiobook details
-- `get_audio_package(format_id)` - Get audio files for audiobook
-- `get_reading_position(format_id)` - Get current playback position
-- `update_reading_position(profile_id, format_id, percentage, elapsed_time)` - Update position
-- `report_usage(profile_id, format_id, usage_blocks)` - Report usage analytics
+### Discovery
+- `search_books(phrase, page, per)` → search results
+- `get_categories(content_type)` → browse categories
+- `get_home_entries(page, per)` → personalized home screen
+- `get_home_entry_products(entry_id, page, per)` → products for a home entry
+- `get_recommendations(product_id)` → similar books
+- `get_products_by_path(path, id, page, per)` → generic product browse
 
-### ProfileConfig
+### Playback
+- `get_audio_package(format_id)` → HLS audio files and metadata
+- `get_position(format_id)` → current reading position
+- `patch_position(format_id, percentage, elapsed_time)` → update position
+- `get_bookmarks(format_id)` / `create_bookmark(...)` / `delete_bookmark(...)`
+- `report_usage(profile_id, format_id, usage_blocks)` → analytics
 
-Manage saved profile configurations.
-
-**Methods:**
-- `ProfileConfig.load()` - Load saved profile from `~/.config/nextory/profile.json`
-- `config.save()` - Save profile configuration
-
-### Streaming Helpers
-
-**Functions:**
-- `get_audio_urls(audio_package)` - Extract direct URLs from audio package
-- `stream_audio_chunks(session, url, chunk_size)` - Async generator for audio streaming
+### Account
+- `get_account()` → account details including country
+- `get_subscription()` → subscription info
 
 ## Development
 
-### Setup
-
 ```bash
-# Install with dev dependencies
-uv sync
-
-# Format code
-uv run ruff format src/
-
-# Check code
-uv run ruff check src/
-
-# Run tests
-uv run pytest
-
-# Run tests with coverage
-uv run pytest --cov=nextory --cov-report=term-missing
-```
-
-### Running Tests
-
-The project includes comprehensive test coverage:
-
-```bash
-# Run all tests
-uv run pytest
-
-# Run with verbose output
-uv run pytest -v
-
-# Run specific test file
-uv run pytest tests/test_models.py
-
-# Run specific test
-uv run pytest tests/test_models.py::test_profile_serialization
-```
-
-### Running the Example
-
-```bash
-# Interactive mode (prompts for credentials)
-uv run python example.py
-
-# With command-line arguments
-uv run python example.py --username your@email.com --password yourpassword
-
-# Short form
-uv run python example.py -u your@email.com -p yourpassword
+uv sync                      # Install dependencies
+uv run ruff check src/       # Lint
+uv run ruff format src/      # Format
+uv run pytest                # Run tests
 ```
 
 ### Project Structure
 
 ```
 src/nextory/
-├── __init__.py          # Package exports
-├── client.py            # Main API client
-├── config.py            # Configuration management
-├── middlewares.py       # Middlewares for auth
-├── models.py            # Data models (Mashumaro)
+├── __init__.py        # Package exports
+├── client.py          # API client
+├── config.py          # Profile configuration
+├── exceptions.py      # Error types
+├── helpers.py         # Utility functions
+├── models.py          # Data models (Mashumaro)
 └── cli/
-    └── select_profile.py  # Profile selection CLI
+    └── select_profile.py
 ```
 
 ## License
 
 MIT
-
-## Contributing
-
-Contributions welcome! This client is designed to be minimal and focused on core audiobook functionality.
