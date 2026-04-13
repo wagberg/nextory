@@ -2,9 +2,48 @@ openapi: 3.0.3
 info:
   title: Nextory API
   description: |
-    Nextory Android app API for audiobooks and ebooks.
-    All information derived from decompiled Android app code.
-  version: 2026.01.3
+    Nextory Android app API (com.gtl.nextory) for audiobooks and ebooks.
+    Derived from decompiled Android app code and network traffic analysis.
+
+    ## Retrofit Interface Mapping (decompiled source)
+
+    The Android app uses Retrofit with obfuscated class names. Key interfaces:
+    - **bb8.java** - Library: product lists, add/remove from library
+    - **kqd.java** - Search: book search, autocomplete, editorial entries
+    - **lcb.java** - Person details: author/{id}, narrator/{id}
+    - **xob.java** - Products: details, browse by path, recommendations, comments
+    - **ti0.java** - Audio reader: audio packages
+    - **at1.java** - Reading position: get/update position
+    - **ti2.java** - Categories: list, details, onboarding
+    - **o5e.java** - Series: popular, details, by category
+    - **g29.java** - Series products
+    - **zw6.java** - Home: home_entries (recommendations)
+    - **zzb.java** - Profiles: list, create, authorize, preferences
+    - **vw8.java** - Auth: sessions (login/logout), registration
+    - **vv1.java** - Bookmarks: CRUD
+    - **ju1.java** - Reader settings
+    - **ubg.java** - Usage blocks (analytics)
+    - **gbf.java** - Subscription info, account deletion
+    - **y7.java** - Account: get/update, notifications
+    - **wqc.java** - Reading diary: stats, activity feed
+    - **pj.java** - AI librarian sessions
+    - **cn5.java** - Reviews
+    - **sj5.java** - Facets (search filters)
+    - **psb.java** - Product sync
+
+    ## HTTP Method Annotations (Retrofit, obfuscated by ProGuard/R8)
+    - @mh6 = @GET
+    - @p2b = @POST
+    - @k2b = @PATCH
+    - @yx3 = @PUT
+    - @xq6 = @HTTP (generic, method specified in annotation e.g. method = "DELETE")
+
+    ## Important Notes
+    - Library product listing endpoints use POST (not GET) with a body containing
+      downloaded product IDs to filter. This is a read operation despite the method.
+    - @ApplyGlobalFilters annotation means profile-level content filters are applied server-side.
+    - @ihc Map<String, String> parameters are additional query params passed as a map.
+  version: 2026.04.1
   contact:
     name: Nextory
     url: https://www.nextory.com
@@ -3979,7 +4018,11 @@ paths:
   /discovery/v1/search/products/books:
     get:
       summary: Search books
-      description: Search for books
+      description: |
+        Search for books by text query. Returns paginated product results.
+        Supports additional filters via query map (e.g. content_type, format).
+        Confirmed via decompiled Android app (kqd.java method e).
+        Has @ApplyGlobalFilters annotation (profile-level filters applied server-side).
       tags:
         - Search & Browse
       security:
@@ -3997,7 +4040,7 @@ paths:
           required: true
           schema:
             type: string
-          description: Search query
+          description: Search query text
         - name: page
           in: query
           schema:
@@ -4012,10 +4055,21 @@ paths:
           in: query
           schema:
             type: string
+          description: Sort order
         - name: showupcoming
           in: query
           schema:
             type: boolean
+          description: Include upcoming/unreleased titles
+        - name: filters
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+          description: Additional filter key-value pairs
       responses:
         '200':
           description: Search results retrieved successfully
@@ -4674,8 +4728,12 @@ paths:
 
   /library/v1/me/product_lists/{type}/products:
     post:
-      summary: Add products to list
-      description: Add products to a specific product list with filtering
+      summary: Get products from a library list
+      description: |
+        Fetch products from a specific library list type. Despite being a POST,
+        this is the primary endpoint for retrieving audiobooks from the user's library.
+        The request body contains IDs of already-downloaded products to exclude from results.
+        Confirmed via decompiled Android app (bb8.java method n).
       tags:
         - Library
       security:
@@ -4693,26 +4751,63 @@ paths:
           required: true
           schema:
             type: string
+            enum:
+              - author
+              - brand_subscription
+              - completed
+              - custom
+              - downloaded
+              - offline
+              - ongoing
+              - following
+              - purchased
+              - want_to_read
+              - unknown
+          description: |
+            Product list type:
+            - ongoing: Currently reading/listening
+            - want_to_read: Books marked to read later
+            - completed: Finished books
+            - downloaded: Downloaded for offline
+            - purchased: Purchased books
+            - custom: User-created custom lists
         - name: id
           in: query
           required: true
           schema:
             type: string
+          description: List ID (obtained from GET /library/v1/me/library)
         - name: page
           in: query
           required: true
           schema:
             type: integer
+            default: 0
         - name: per
           in: query
           required: true
           schema:
             type: integer
+            default: 50
         - name: filter
           in: query
           required: true
           schema:
             type: string
+            enum:
+              - all
+              - kids
+              - teenagers
+          description: Age-based content filter
+        - name: filters
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+          description: Additional filter key-value pairs (e.g. content_type, format)
       requestBody:
         required: true
         content:
@@ -4721,7 +4816,7 @@ paths:
               $ref: '#/components/schemas/DownloadedProductIdsToFilter'
       responses:
         '200':
-          description: Products added successfully
+          description: Product list retrieved successfully
           content:
             application/json:
               schema:
@@ -4808,6 +4903,96 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NetworkErrorResponse'
+    put:
+      summary: Unmark product completed
+      description: |
+        Remove completed status from a product.
+        Confirmed via decompiled Android app (bb8.java method e).
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Completed status removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryListResponse'
+
+  /library/v1/me/product_lists/products:
+    delete:
+      summary: Remove products from library lists
+      description: |
+        Remove one or more products from library lists.
+        Confirmed via decompiled Android app (bb8.java method k).
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Product IDs to remove (body type pd4 in decompiled source)
+      responses:
+        '200':
+          description: Products removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryListResponse'
+
+  /library/v1/me/product_lists/all/products/{id}:
+    put:
+      summary: Add product to library
+      description: |
+        Add a product to the user's library (all products list).
+        Confirmed via decompiled Android app (bb8.java method h).
+      tags:
+        - Library
+      security:
+        - DeviceAuth: []
+        - ProfileAuth: []
+      parameters:
+        - $ref: '#/components/parameters/X-Application-Id'
+        - $ref: '#/components/parameters/X-Device-Id'
+        - $ref: '#/components/parameters/X-Locale'
+        - $ref: '#/components/parameters/X-Model'
+        - $ref: '#/components/parameters/X-App-Version'
+        - $ref: '#/components/parameters/X-Os-Info'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Product ID to add
+      responses:
+        '200':
+          description: Product added to library
 
   /library/v1/me/library:
     get:
@@ -4889,10 +5074,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/NetworkErrorResponse'
 
-  /library/v2/me/product_lists/{type}/products:
-    get:
-      summary: Get product list
-      description: Get products from a specific list type
+  /library/v2/me/product_lists/all/products:
+    post:
+      summary: Get all library products
+      description: |
+        Fetch all products across all library lists. Despite being a POST,
+        this is a read operation. The request body contains IDs of already-downloaded
+        products to exclude from results.
+        Confirmed via decompiled Android app (bb8.java method d).
       tags:
         - Library
       security:
@@ -4906,42 +5095,6 @@ paths:
         - $ref: '#/components/parameters/X-Locale'
         - $ref: '#/components/parameters/X-Model'
         - $ref: '#/components/parameters/X-Os-Info'
-        - name: type
-          in: path
-          required: true
-          schema:
-            type: string
-            enum:
-              - author
-              - brand_subscription
-              - completed
-              - custom
-              - downloaded
-              - offline
-              - ongoing
-              - following
-              - purchased
-              - want_to_read
-              - unknown
-          description: |
-            Product list type from LibraryListType enum:
-            - author: Books by specific author
-            - brand_subscription: Brand subscription content
-            - completed: Finished books
-            - custom: User-created custom lists
-            - downloaded: Downloaded for offline reading
-            - offline: Offline available content
-            - ongoing: Currently reading
-            - following: Content from followed items
-            - purchased: Purchased books
-            - want_to_read: Books marked to read later
-            - unknown: Unknown list type
-        - name: id
-          in: query
-          required: true
-          schema:
-            type: string
-          description: List ID
         - name: page
           in: query
           required: true
@@ -4965,20 +5118,13 @@ paths:
               - kids
               - teenagers
             nullable: true
-          description: |
-            Content filter based on age appropriateness (ProfileFilter enum):
-            - all: All content (no restrictions)
-            - kids: Kids content only
-            - teenagers: Teenager content only
-        - name: filters
-          in: query
-          style: form
-          explode: true
-          schema:
-            type: object
-            additionalProperties:
-              type: string
-          description: Additional filter key-value pairs
+          description: Age-based content filter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DownloadedProductIdsToFilter'
       responses:
         '200':
           description: Product list retrieved successfully

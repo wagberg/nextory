@@ -152,7 +152,7 @@ class LibraryListType(enum.StrEnum):
     CUSTOM = "custom"
     DOWNLOADED = "downloaded"
     OFFLINE = "offline"
-    ONGING = "ongoing"
+    ONGOING = "ongoing"
     FOLLOWING = "following"
     PURCHASED = "purchased"
     WANT_TO_READ = "want_to_read"
@@ -383,6 +383,40 @@ class CategoryResponse(DataClassJSONMixin):
     bgc: Optional[str] = None
     large_image: Optional[str] = None
     small_image: Optional[str] = None
+
+
+@dataclass
+class CategoryListResponse(DataClassJSONMixin):
+    """Response from GET /discovery/v1/categories."""
+
+    categories: list[CategoryResponse]
+
+
+@dataclass
+class HomeSelectionResponse(DataClassJSONMixin):
+    """Selection within a home entry."""
+
+    id: int
+    title: str
+    type: Optional[str] = None
+    detail: Optional[str] = None
+    small_image: Optional[str] = None
+
+
+@dataclass
+class HomeEntryResponse(DataClassJSONMixin):
+    """Single home screen entry."""
+
+    id: int
+    type: str
+    selection: Optional[HomeSelectionResponse] = None
+
+
+@dataclass
+class HomeEntriesResponse(DataClassJSONMixin):
+    """Response from GET /discovery/v3/home_entries."""
+
+    entries: list[HomeEntryResponse]
 
 
 @dataclass
