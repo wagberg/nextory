@@ -35,6 +35,9 @@ class ExpiredLoginTokenError(NextoryApiError): # 2001
 class ExpiredProfileTokenError(NextoryApiError): # 2002
     pass
 
+class MaxProfileSessionsError(NextoryApiError): # 2003
+    pass
+
 class InvalidAuthTokenError(NextoryApiError): # 1001
     pass
 
@@ -45,7 +48,9 @@ class MissingHeaderError(NextoryApiError): # 1005
         match = re.search(r'\[(.*?)\]|missing\s+(X-[\w-]+)', description)
         if match:
             headers_str = match.group(1) or match.group(2)
-            self.missing_headers = [h.strip().replace('-','').lower() for h in headers_str.split(",")]
+            self.missing_headers = [
+                h.strip().replace('-', '').lower() for h in headers_str.split(",")
+            ]
         else:
             self.missing_headers = []
 
@@ -82,6 +87,7 @@ ERROR_CODE_MAP: dict[int, type[NextoryApiError]] = {
     1007: InvalidDataError,
     2001: ExpiredLoginTokenError,
     2002: ExpiredProfileTokenError,
+    2003: MaxProfileSessionsError,
     3010: ProfileNotFoundError,
     7111: UnauthorizedError,
 }
